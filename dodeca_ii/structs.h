@@ -1,6 +1,6 @@
 #define PPQN 24
 
-enum Mode {VOLT=0, CLOCK=1};
+enum Mode {VOLT=0, CLOCK=1, LFO=2};
 
 struct Outlet {
   int pin;
@@ -15,6 +15,7 @@ struct Outlet {
   float target_value;
   float slew;
   float delta;
+  float lfo_freq;
   int steps;
 
   bool changed;
@@ -26,10 +27,13 @@ struct Outlet {
     mode = VOLT;
     clock_div = 6;
     clock_off = 3;
+
+    lfo_freq = 1;
   }
 
   void set_mode (int m) {
     if (m==CLOCK) mode = CLOCK;
+    else if (m==LFO) mode = LFO;
     else mode = VOLT;
   }
 
@@ -45,7 +49,8 @@ struct Outlet {
       write(value);
     }
     else {
-      steps = int(slew/CTRLRATE);
+      //steps = int(slew/CTRLRATE);
+      steps = slew; // because timer runs with 1kHz => slew in ms == steps
       steps = steps<=0 ? 1 : steps;
       delta = float(target_value-value)/steps;
     }
@@ -57,23 +62,30 @@ struct Outlet {
     if (steps>0) set(target_value);
   }
 
+  void set_lfo_freq (float hz) {
+    lfo_freq = constrain(hz,0.015,500);
+  }
+
   void process () {
     if (steps>0) {
       steps--;
       value += delta;
-      //analogWrite(pin, value);
       write(value);
     }
   }
 
-  void process (int t) {
+  void process (unsigned long cycles, int ticks) {
     if (mode==CLOCK) {
-      if (t%clock_div == 0) {
+      if (ticks%clock_div == 0) {
         write(MAX);
       }
-      else if (t%clock_div == clock_off) {
+      else if (ticks%clock_div == clock_off) {
         write(0);
       }
+    }
+    else if (mode==LFO) {
+      float val = (sin(cycles/(1000. / lfo_freq) * 2 * PI) + 1) * (MAX/2);
+      write(val);
     }
     else {
       process();

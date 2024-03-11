@@ -28,9 +28,14 @@ Right Side Dodceca - DUBDECA layout
 
 const int MAX = pow(2,BITS);
 
+unsigned long cpu_cycles;
+
 elapsedMillis ctrlRate;
 
-int ticks = 0;
+IntervalTimer writeTimer;
+const int writeRate = 1000;
+
+int clock_ticks = 0;
 
 #include "structs.h"
 
@@ -101,21 +106,59 @@ void setup() {
   MIDI.setHandleStop(HandleStop);
   MIDI.setHandleContinue(HandleContinue);*/
 
+  // START TIMER
+  writeTimer.begin(writeOutputs, writeRate);
+
   // I2C
   // initialize the teensy optimized wire library
   Wire.begin(I2C_SLAVE, configID, I2C_PINS_18_19, enablePullups ? I2C_PULLUP_INT : I2C_PULLUP_EXT, I2C_RATE_400);  // I2C_RATE_2400
   Wire.onReceive(receiveEvent);
+
+  float base_freq = 0.058;
+
+  outlets[4].set_lfo_freq(1*base_freq);
+  outlets[4].set_mode(LFO);
+
+  outlets[5].set_lfo_freq(2*base_freq);
+  outlets[5].set_mode(LFO);
+
+  outlets[6].set_lfo_freq(3*base_freq);
+  outlets[6].set_mode(LFO);
+
+  outlets[7].set_lfo_freq(5*base_freq);
+  outlets[7].set_mode(LFO);
+
+  outlets[8].set_lfo_freq(8*base_freq);
+  outlets[8].set_mode(LFO);
+
+  outlets[9].set_lfo_freq(13*base_freq);
+  outlets[9].set_mode(LFO);
+
+  outlets[10].set_lfo_freq(21*base_freq);
+  outlets[10].set_mode(LFO);
+
+  outlets[11].set_lfo_freq(34*base_freq);
+  outlets[11].set_mode(LFO);
+
+  //outlets[0].set(4000);
 }
 
 void loop() {
   // Call MIDI.read the fastest you can for real-time performance.
   MIDI.read();
 
-  if (ctrlRate > CTRLRATE) {
+  /*if (ctrlRate > CTRLRATE) {
     ctrlRate = 0;
     for (int i=0; i<12; i++) {
-      outlets[i].process(ticks);
+      outlets[i].process(clock_ticks);
     }
+  }*/
+}
+
+void writeOutputs () {
+  cpu_cycles ++;
+  for (int i=0; i<12; i++) {
+    outlets[i].process(cpu_cycles, clock_ticks);
   }
 }
 
@@ -145,5 +188,6 @@ void actOnCommand(byte cmd, byte out, int value) {
 }
 
 void tick (int t) {
-  ticks = t;
+  clock_ticks = t;
 }
+
